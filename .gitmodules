@@ -1,0 +1,3 @@
+[submodule "vendor/dattri"]
+	path = vendor/dattri
+	url = https://github.com/TRAIS-Lab/dattri.git
