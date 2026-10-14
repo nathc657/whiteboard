@@ -122,6 +122,7 @@ assert trak_scores.shape == expected_run_shape
 print("TRAK score matrix shape:", trak_scores.shape)
 
 if RUN_FULL_TRAK:
+    aria_metrics = aria_matrix_diagnostics(trak_scores)
     lds_correlations, lds_p_values = lds(
         trak_scores,
         (lds_targets, subset_indices),
@@ -131,6 +132,7 @@ if RUN_FULL_TRAK:
 
     print("Valid per-query LDS values:", valid_lds.numel(), "of", query_count)
     print("Mean LDS:", mean_lds.item())
+    print("ARIA score-matrix diagnostics:", aria_metrics)
 
     results_path = Path("output") / "maestro_trak_lds_single_full_checkpoint.pt"
     results_path.parent.mkdir(parents=True, exist_ok=True)
@@ -141,6 +143,7 @@ if RUN_FULL_TRAK:
             "lds_p_values": lds_p_values.cpu(),
             "targets": lds_targets.cpu(),
             "subset_indices": subset_indices.cpu(),
+            "aria_diagnostics": aria_metrics,
             "checkpoint": str(checkpoint_path),
             "projection_dim": attributor.proj_params.proj_dim,
             "device": DEVICE,
