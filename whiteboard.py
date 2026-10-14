@@ -1,4 +1,6 @@
-﻿import torch
+﻿from pathlib import Path
+
+import torch
 import torch.nn.functional as F
 from torch.utils.data import DataLoader
 
@@ -31,7 +33,7 @@ assert subset_indices.max().item() < training_count
 
 print("Training segment indices:", training_count)
 print("Query indices:", query_count)
-print("Expected full TRAK score matrix (not computed):", expected_score_shape)
+print("Expected full TRAK score matrix:", expected_score_shape)
 print("LDS target values:", lds_targets.shape)
 print("Subset indices:", subset_indices.shape)
 print("Each LDS subset uses this many training segments:", subset_size)
@@ -64,36 +66,87 @@ def target_probability(params, batch):
     return target_log_probability(params, batch).exp()
 
 
-training_probe = DataLoader(
-    benchmark["train_dataset"],
-    batch_size=1,
-    sampler=SubsetSampler([0]),
-)
-query_probe = DataLoader(
-    benchmark["test_dataset"],
-    batch_size=1,
-    sampler=SubsetSampler([0]),
-)
+RUN_FULL_TRAK = False
+BATCH_SIZE = 8
+checkpoint_path = benchmark["models_full"][0]
+
+if RUN_FULL_TRAK:
+    print(
+        "Using full-data checkpoint 0 of",
+        len(benchmark["models_full"]),
+        "for this single-checkpoint matrix.",
+    )
+    training_loader = DataLoader(
+        benchmark["train_dataset"],
+        batch_size=BATCH_SIZE,
+        sampler=benchmark["train_sampler"],
+    )
+    query_loader = DataLoader(
+        benchmark["test_dataset"],
+        batch_size=BATCH_SIZE,
+        sampler=benchmark["test_sampler"],
+    )
+else:
+    print("Full TRAK matrix disabled; running one-pair probe only.")
+    training_loader = DataLoader(
+        benchmark["train_dataset"],
+        batch_size=1,
+        sampler=SubsetSampler([0]),
+    )
+    query_loader = DataLoader(
+        benchmark["test_dataset"],
+        batch_size=1,
+        sampler=SubsetSampler([0]),
+    )
 
 task = AttributionTask(
     loss_func=target_log_odds,
     model=benchmark["model"],
-    checkpoints=[str(benchmark["models_half"][0])],
+    checkpoints=[str(checkpoint_path)],
 )
 attributor = TRAKAttributor(
     task=task,
     correct_probability_func=target_probability,
-    proj_params=TRAKProjectionParams(proj_dim=32),
+    proj_params=TRAKProjectionParams(),
     device=DEVICE,
     regularization=1e-3,
 )
 
 with torch.no_grad():
-    attributor.cache(training_probe)
-    probe_scores = attributor.attribute(query_probe)
+    attributor.cache(training_loader)
+    trak_scores = attributor.attribute(query_loader)
 
-assert probe_scores.shape == (1, 1)
-print("One-segment, one-query TRAK score shape:", probe_scores.shape)
+expected_run_shape = expected_score_shape if RUN_FULL_TRAK else (1, 1)
+assert trak_scores.shape == expected_run_shape
+print("TRAK score matrix shape:", trak_scores.shape)
+
+if RUN_FULL_TRAK:
+    lds_correlations, lds_p_values = lds(
+        trak_scores,
+        (lds_targets, subset_indices),
+    )
+    valid_lds = lds_correlations[~torch.isnan(lds_correlations)]
+    mean_lds = valid_lds.mean() if valid_lds.numel() else torch.tensor(float("nan"))
+
+    print("Valid per-query LDS values:", valid_lds.numel(), "of", query_count)
+    print("Mean LDS:", mean_lds.item())
+
+    results_path = Path("output") / "maestro_trak_lds_single_full_checkpoint.pt"
+    results_path.parent.mkdir(parents=True, exist_ok=True)
+    torch.save(
+        {
+            "scores": trak_scores.cpu(),
+            "lds_correlations": lds_correlations.cpu(),
+            "lds_p_values": lds_p_values.cpu(),
+            "targets": lds_targets.cpu(),
+            "subset_indices": subset_indices.cpu(),
+            "checkpoint": str(checkpoint_path),
+            "projection_dim": attributor.proj_params.proj_dim,
+            "device": DEVICE,
+        },
+        results_path,
+    )
+    print("Saved full matrix and LDS results to:", results_path)
 
 synthetic_scores = torch.tensor(
     [[1.0, 3.0], [2.0, 2.0], [3.0, 1.0]],
