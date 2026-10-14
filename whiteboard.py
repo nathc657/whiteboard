@@ -4,6 +4,7 @@ import torch
 import torch.nn.functional as F
 from torch.utils.data import DataLoader
 
+from aria_diagnostics import aria_matrix_diagnostics
 from dattri.algorithm.trak import TRAKAttributor
 from dattri.benchmark.load import load_benchmark
 from dattri.benchmark.utils import SubsetSampler
@@ -185,4 +186,31 @@ partial_lds, _ = lds(
 )
 assert torch.allclose(partial_lds, torch.tensor([0.8]))
 print("LDS with partial rank agreement:", partial_lds)
+
+aria_query_specific = torch.tensor(
+    [[1.0, 0.0, 1.0], [-1.0, 0.0, 1.0], [0.0, 1.0, -1.0], [0.0, -1.0, -1.0]],
+)
+query_specific_diagnostics = aria_matrix_diagnostics(aria_query_specific)
+assert abs(query_specific_diagnostics["kappa"]) < 1e-12
+assert abs(query_specific_diagnostics["r1"] - 0.5) < 1e-12
+assert abs(query_specific_diagnostics["r2_5"] - 0.5) < 1e-12
+assert abs(query_specific_diagnostics["p"]) < 1e-12
+print("ARIA query-specific diagnostics:", query_specific_diagnostics)
+
+shared_profile = torch.tensor([0.0, 1.0, 3.0, 6.0])
+aria_query_collapsed = torch.stack(
+    (shared_profile, 2 * shared_profile, -shared_profile),
+    dim=1,
+)
+collapsed_diagnostics = aria_matrix_diagnostics(aria_query_collapsed)
+assert abs(collapsed_diagnostics["kappa"] - 1.0) < 1e-12
+assert abs(collapsed_diagnostics["r1"] - 1.0) < 1e-12
+assert abs(collapsed_diagnostics["r2_5"]) < 1e-12
+print("ARIA query-collapsed diagnostics:", collapsed_diagnostics)
+
+aria_constant = aria_matrix_diagnostics(torch.full((4, 3), 2.0))
+assert torch.isnan(torch.tensor(aria_constant["kappa"]))
+assert abs(aria_constant["r1"] - 1.0) < 1e-12
+assert abs(aria_constant["p"] - 1.0) < 1e-12
+print("ARIA constant-column diagnostics:", aria_constant)
 
