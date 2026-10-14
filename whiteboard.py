@@ -20,10 +20,20 @@ benchmark, (lds_targets, subset_indices) = load_benchmark(
 benchmark["model"].device = DEVICE
 benchmark["model"] = benchmark["model"].to(DEVICE)
 
-print("Training segment indices:", len(benchmark["train_sampler"]))
-print("Query indices:", len(benchmark["test_sampler"]))
+training_count = len(benchmark["train_sampler"])
+query_count = len(benchmark["test_sampler"])
+subset_count, subset_size = subset_indices.shape
+expected_score_shape = (training_count, query_count)
+
+assert lds_targets.shape == (subset_count, query_count)
+assert subset_indices.max().item() < training_count
+
+print("Training segment indices:", training_count)
+print("Query indices:", query_count)
+print("Expected full TRAK score matrix (not computed):", expected_score_shape)
 print("LDS target values:", lds_targets.shape)
 print("Subset indices:", subset_indices.shape)
+print("Each LDS subset uses this many training segments:", subset_size)
 
 train_input, train_target = benchmark["train_dataset"][0]
 query_input, query_target = benchmark["test_dataset"][0]
@@ -81,4 +91,5 @@ with torch.no_grad():
     attributor.cache(training_probe)
     probe_scores = attributor.attribute(query_probe)
 
+assert probe_scores.shape == (1, 1)
 print("One-segment, one-query TRAK score shape:", probe_scores.shape)
