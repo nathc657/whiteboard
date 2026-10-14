@@ -107,6 +107,7 @@ synthetic_subset_indices = torch.tensor(
 subset_score_sums = synthetic_scores[synthetic_subset_indices].sum(dim=1)
 print("Synthetic subset score sums:", subset_score_sums)
 
+# LDS compares each query's subset score sums with its target values by rank.
 synthetic_lds, _ = lds(
     synthetic_scores,
     (synthetic_targets, synthetic_subset_indices),
@@ -121,4 +122,14 @@ reversed_lds, _ = lds(
 )
 assert torch.allclose(reversed_lds, -torch.ones(2))
 print("LDS with reversed target rankings:", reversed_lds)
+
+partial_scores = torch.tensor([[1.0], [2.0], [3.0], [4.0]])
+partial_targets = torch.tensor([[0.1], [0.3], [0.2], [0.4]])
+single_sample_subsets = torch.arange(4).reshape(-1, 1)
+partial_lds, _ = lds(
+    partial_scores,
+    (partial_targets, single_sample_subsets),
+)
+assert torch.allclose(partial_lds, torch.tensor([0.8]))
+print("LDS with partial rank agreement:", partial_lds)
 
