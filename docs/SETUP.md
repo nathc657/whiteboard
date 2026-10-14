@@ -27,7 +27,28 @@ py -3.12 -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -e ./vendor/dattri --no-deps
 ```
 
-The lock is Windows/Python 3.12 specific; CPU wheels require the PyTorch CPU index above. Build a separate environment and lock for future CUDA work.
+The CPU lock is Windows/Python 3.12 specific and uses CPU-only PyTorch wheels.
+
+## GPU environment
+
+The separate `.venv-gpu` uses PyTorch with CUDA 12.8. Create and install it with:
+
+```powershell
+.\.venv\Scripts\python.exe -m venv .venv-gpu
+.\.venv-gpu\Scripts\python.exe -m pip install -r requirements-gpu.txt --extra-index-url https://download.pytorch.org/whl/cu128
+.\.venv-gpu\Scripts\python.exe -m pip install -e ./vendor/dattri --no-deps
+.\.venv-gpu\Scripts\python.exe -c "import torch; print(torch.cuda.is_available(), torch.cuda.get_device_name(0))"
+```
+
+In VS Code, press `Ctrl+Shift+P`, choose **Python: Select Interpreter**, then select `.venv\Scripts\python.exe` for CPU or `.venv-gpu\Scripts\python.exe` for GPU. Open a new terminal after switching.
+
+To activate either environment directly in PowerShell, first run `deactivate` if an environment is already active, then run the matching command:
+
+```powershell
+.\.venv\Scripts\Activate.ps1
+# or
+.\.venv-gpu\Scripts\Activate.ps1
+```
 
 ## MusicTransformer / MAESTRO source map
 
@@ -52,6 +73,7 @@ The synthetic segmentation check documents the inspected upstream behavior: offs
 - dattri revision: `ef50a35e6cdfa358ca104b7655ef15dcb9650afe`.
 - Python: 3.12.14; PyTorch: 2.5.1+cpu; CUDA unavailable (expected).
 - Dependency consistency: `pip check` passed.
+- GPU venv: Python 3.12.14; PyTorch 2.11.0+cu128; CUDA 12.8 detected NVIDIA GeForce RTX 5080 Laptop GPU.
 - Reduced MusicTransformer: output shape `[2, 16, 390]`; loss 6.145303; finite gradients and optimizer update passed.
 - Synthetic dataset segmentation checks passed.
 - Upstream submodule has no tracked modifications after setup.

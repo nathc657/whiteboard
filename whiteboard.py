@@ -8,12 +8,17 @@ from dattri.benchmark.utils import SubsetSampler
 from dattri.params.projection import TRAKProjectionParams
 from dattri.task import AttributionTask
 
+DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
+print("Using device:", DEVICE)
+
 benchmark, (lds_targets, subset_indices) = load_benchmark(
     model="musictransformer",
     dataset="maestro",
     metric="lds",
     download_path=r"C:\Users\nated\.dattri",
 )
+benchmark["model"].device = DEVICE
+benchmark["model"] = benchmark["model"].to(DEVICE)
 
 print("Training segment indices:", len(benchmark["train_sampler"]))
 print("Query indices:", len(benchmark["test_sampler"]))
@@ -68,7 +73,7 @@ attributor = TRAKAttributor(
     task=task,
     correct_probability_func=target_probability,
     proj_params=TRAKProjectionParams(proj_dim=32),
-    device="cpu",
+    device=DEVICE,
     regularization=1e-3,
 )
 
