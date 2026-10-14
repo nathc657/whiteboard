@@ -5,6 +5,7 @@ from torch.utils.data import DataLoader
 from dattri.algorithm.trak import TRAKAttributor
 from dattri.benchmark.load import load_benchmark
 from dattri.benchmark.utils import SubsetSampler
+from dattri.metric import lds
 from dattri.params.projection import TRAKProjectionParams
 from dattri.task import AttributionTask
 
@@ -93,3 +94,20 @@ with torch.no_grad():
 
 assert probe_scores.shape == (1, 1)
 print("One-segment, one-query TRAK score shape:", probe_scores.shape)
+
+synthetic_scores = torch.tensor(
+    [[1.0, 3.0], [2.0, 2.0], [3.0, 1.0]],
+)
+synthetic_targets = torch.tensor(
+    [[0.1, 0.3], [0.2, 0.2], [0.3, 0.1]],
+)
+synthetic_subset_indices = torch.tensor(
+    [[0, 1], [0, 2], [1, 2]],
+)
+synthetic_lds, _ = lds(
+    synthetic_scores,
+    (synthetic_targets, synthetic_subset_indices),
+)
+assert torch.allclose(synthetic_lds, torch.ones(2))
+print("Synthetic LDS correlations:", synthetic_lds)
+
