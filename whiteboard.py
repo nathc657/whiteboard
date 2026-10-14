@@ -104,10 +104,21 @@ synthetic_targets = torch.tensor(
 synthetic_subset_indices = torch.tensor(
     [[0, 1], [0, 2], [1, 2]],
 )
+subset_score_sums = synthetic_scores[synthetic_subset_indices].sum(dim=1)
+print("Synthetic subset score sums:", subset_score_sums)
+
 synthetic_lds, _ = lds(
     synthetic_scores,
     (synthetic_targets, synthetic_subset_indices),
 )
 assert torch.allclose(synthetic_lds, torch.ones(2))
 print("Synthetic LDS correlations:", synthetic_lds)
+
+reversed_targets = synthetic_targets.flip(0)
+reversed_lds, _ = lds(
+    synthetic_scores,
+    (reversed_targets, synthetic_subset_indices),
+)
+assert torch.allclose(reversed_lds, -torch.ones(2))
+print("LDS with reversed target rankings:", reversed_lds)
 
